@@ -33,6 +33,9 @@
 
 typedef Orbit_HT(void *, void *) Orbit_Generic_HT;
 
+#define ORBIT_GET_COMPARE_(_default, _provided, ...) _provided
+#define ORBIT_GET_COMPARE(_default, ...) ORBIT_GET_COMPARE_(_default __VA_OPT__(, ) __VA_ARGS__, _default)
+
 #define orbit_sizeof_comparison(x)                                                                                     \
     (_Generic((x),                                                                                                     \
          char *: orbit_strlen(*(char **) ((char *[]){(char *) *((intptr_t *) &x)})),                                   \
@@ -51,6 +54,22 @@ typedef Orbit_HT(void *, void *) Orbit_Generic_HT;
          volatile const unsigned char *: orbit_strlen(*(char **) ((char *[]){(char *) *((intptr_t *) &x)})),           \
                                                                                                                        \
          default: sizeof(x)))
+
+#define orbit_key_compare(ht)                                                                                          \
+    (_Generic((ht)->elements->key,                                                                                     \
+         char *: orbit_strcmp,                                                                                         \
+         const char *: orbit_strcmp,                                                                                   \
+         volatile char *: orbit_strcmp,                                                                                \
+         volatile const char *: orbit_strcmp,                                                                          \
+         signed char *: orbit_strcmp,                                                                                  \
+         const signed char *: orbit_strcmp,                                                                            \
+         volatile signed char *: orbit_strcmp,                                                                         \
+         volatile const signed char *: orbit_strcmp,                                                                   \
+         unsigned char *: orbit_strcmp,                                                                                \
+         const unsigned char *: orbit_strcmp,                                                                          \
+         volatile unsigned char *: orbit_strcmp,                                                                       \
+         volatile const unsigned char *: orbit_strcmp,                                                                 \
+         default: memcmp))
 
 #define orbit_key_data(ht, _key)                                                                                       \
     (_Generic((ht)->elements->key,                                                                                     \
@@ -236,12 +255,15 @@ typedef Orbit_HT(void *, void *) Orbit_Generic_HT;
         }                                                                                                              \
     } while (0);
 
-#define orbit_get(ht, _key, _value)                                                                                    \
+#define orbit_get_comp(ht, _key, key_compare)                                                                          \
     (assert((ht)), assert((ht)->elements),                                                                             \
      (typeof((ht)->elements->value) *) orbit__get(                                                                     \
-         (Orbit_Generic_HT *) ht, orbit_key_data(ht, _key), ((typeof((ht)->elements->value)[]){(_value)}),             \
-         orbit_key_size(ht, _key), orbit_sizeof_comparison((ht)->elements->value),                                     \
+         (Orbit_Generic_HT *) ht, orbit_key_data(ht, _key), orbit_key_size(ht, _key),                                  \
+         ((typeof((ht)->elements->key)[]){(_key)}), key_compare, offsetof(typeof(*(ht)->elements), _next),             \
+         offsetof(typeof(*(ht)->elements), occupied), offsetof(typeof(*(ht)->elements), key),                          \
          offsetof(typeof(*(ht)->elements), value), sizeof(*(ht)->elements)))
+
+#define orbit_get(ht, _key, ...) orbit_get_comp(ht, _key, ORBIT_GET_COMPARE(orbit_key_compare(ht), __VA_ARGS__))
 
 #define orbit_itterator(ht)                                                                                            \
     ((ht)->satellite_index_to_visit_next = 0, (ht)->satellite_to_visit_next = NULL, orbit_next((ht)))
@@ -259,8 +281,9 @@ typedef Orbit_HT(void *, void *) Orbit_Generic_HT;
 
 uintptr_t orbit_djb2_hash(void *data, size_t size);
 size_t orbit_hash(void *buffer, size_t size, size_t max_index);
-void *orbit__get(Orbit_Generic_HT *ht, void *key, void *value, size_t key_size, size_t value_size,
-                 size_t offsetof_value, size_t satellite_size);
+void *orbit__get(Orbit_Generic_HT *ht, void *key, size_t key_size, void *key_object,
+                 int (*key_compare)(const void *, const void *, size_t), size_t offsetof__next,
+                 size_t offsetof_occupied, size_t offsetof_key, size_t offsetof_value, size_t satellite_size);
 void *orbit_get_next_valid_entry(Orbit_Generic_HT *ht, size_t offsetof__next, size_t offsetof_occupied,
                                  size_t satellite_size);
 size_t orbit_strlen(const char *str);
@@ -289,20 +312,19 @@ size_t orbit_hash(void *buffer, size_t size, size_t max_index) {
     return orbit_djb2_hash(buffer, size) % max_index;
 }
 
-void *orbit__get(Orbit_Generic_HT *ht, void *key, void *value, size_t key_size, size_t value_size,
-                 size_t offsetof_value, size_t satellite_size) {
+void *orbit__get(Orbit_Generic_HT *ht, void *key, size_t key_size, void *key_object,
+                 int (*key_compare)(const void *, const void *, size_t), size_t offsetof__next,
+                 size_t offsetof_occupied, size_t offsetof_key, size_t offsetof_value, size_t satellite_size) {
     if (ht && ht->elements && ht->capacity) {
         size_t ht_index = orbit_hash(key, key_size, ht->capacity);
-        if ((ht)->compare == NULL) {
-            (ht)->compare = orbit_memcmp;
-        }
 
         uint8_t *current_satellite = (uint8_t *) ht->elements + ht_index * satellite_size;
         do {
-            if ((ht)->compare(current_satellite + offsetof_value, value, value_size) == 0) {
+            bool occupied = *(char *) (current_satellite + offsetof_occupied);
+            if (occupied && key_compare(current_satellite + offsetof_key, key_object, key_size) == 0) {
                 return current_satellite + offsetof_value;
             }
-            current_satellite = (void *) (uint64_t) *(current_satellite + 0);
+            current_satellite = *(void **) (current_satellite + offsetof__next);
         } while (current_satellite);
     }
     return NULL;

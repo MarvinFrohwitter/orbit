@@ -32,6 +32,11 @@ int main() {
     char *a[] = {"hello"};
     orbit_put(ht, a, NULL);
 
+    char **value = orbit_get(ht, a);
+    if (value) {
+        printf("*value = %s\n", *value);
+    }
+
     orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
     orbit_delete(ht, a, NULL);
     orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
