@@ -314,10 +314,8 @@ void *orbit_get_next_valid_entry(Orbit_Generic_HT *ht, size_t offsetof__next, si
         return NULL;
     }
 
-    // If the last returned satellite has a collision-chain successor, visit
-    // that next. Otherwise resume scanning the buckets after it.
     if (ht->satellite_to_visit_next) {
-        void *next_satellite = *(void **) ((uint8_t *) ht->satellite_to_visit_next + offsetof__next);
+        void *next_satellite = *(void **) ((char *) ht->satellite_to_visit_next + offsetof__next);
         if (next_satellite) {
             ht->satellite_to_visit_next = next_satellite;
             return next_satellite;
@@ -343,37 +341,44 @@ size_t orbit_strlen(const char *str) {
     if (!str) {
         return 0;
     }
-    return strlen(str);
-}
-
-int orbit_strcmp(const void *s1, const void *s2, size_t n) {
-    if (!s1 || !s2) {
-        return -1;
-    }
-    const char *str1 = *(char *const *) s1;
-    const char *str2 = *(char *const *) s2;
-    if (!str1 && !str2) {
-        return 0;
-    }
-    if (!str1 || !str2) {
-        return -1;
-    }
-    return strncmp(str1, str2, n);
+    const char *start = str;
+    for (; *str; str++);
+    return str - start;
 }
 
 int orbit_memcmp(const void *s1, const void *s2, size_t n) {
     if (!s1 || !s2) {
         return -1;
     }
-    const void *data1 = *(void *const *) s1;
-    const void *data2 = *(void *const *) s2;
+    const unsigned char *data1 = (const unsigned char *) *(void *const *) s1;
+    const unsigned char *data2 = (const unsigned char *) *(void *const *) s2;
     if (!data1 && !data2) {
         return 0;
     }
     if (!data1 || !data2) {
         return -1;
     }
-    return memcmp(data1, data2, n);
+    for (; n && *data1 == *data2; n--, data1++, data2++);
+    return n ? *data1 - *data2 : 0;
+}
+
+int orbit_strcmp(const void *s1, const void *s2, size_t n) {
+    if (!s1 || !s2) {
+        return -1;
+    }
+    const unsigned char *str1 = (const unsigned char *) *(char *const *) s1;
+    const unsigned char *str2 = (const unsigned char *) *(char *const *) s2;
+    if (!str1 && !str2) {
+        return 0;
+    }
+    if (!str1 || !str2) {
+        return -1;
+    }
+    if (!n--) {
+        return 0;
+    }
+    for (; n && *str1 && *str2 && *str1 == *str2; str1++, str2++, n--);
+    return *str1 - *str2;
 }
 
 #endif  // ORBIT_IMPLEMENTATION

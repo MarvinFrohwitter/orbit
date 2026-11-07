@@ -17,18 +17,9 @@ typedef struct {
 #define SV_ARG(sv) (int) (sv).count, (sv).elements
 #define SV_FMT "%.*s"
 
-int innter_ht_cmp(const void *s1, const void *s2, size_t n) {
+int inner_ht_cmp(const void *s1, const void *s2, size_t n) {
     printf("HY from inner ht cmp\n");
-    if (!s1 || !s2) {
-        return -1;
-    }
-    if (!*(uint8_t *) s1 && !*(uint8_t *) s2) {
-        return 0;
-    }
-    if (!*(uint8_t *) s1 || !*(uint8_t *) s2) {
-        return -1;
-    }
-    return memcmp(*(char **) s1, *(char **) s2, n);
+    return orbit_memcmp(s1, s2, n);
 }
 
 int main() {
