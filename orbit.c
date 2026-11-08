@@ -19,7 +19,7 @@ typedef struct {
 
 int inner_ht_cmp(const void *s1, const void *s2, size_t n) {
     printf("HY from inner ht cmp\n");
-    return orbit_memcmp(s1, s2, n);
+    return memcmp(s1, s2, n);
 }
 
 int main() {
@@ -32,18 +32,17 @@ int main() {
     char *a[] = {"hello"};
     typeof(ht->elements->kv) *kv = orbit_put(ht, a, NULL);
     assert(kv);
+
     typeof(ht->elements->kv.value) *value = orbit_get(ht, a);
-    if (value) {
-        printf("*value = %s\n", *value);
-    }
+    assert(value);
+    (void) value;
 
     orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
-    // orbit_delete(ht, a, NULL);
-    orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
+    orbit_delete(ht, a, NULL);
 
     orbit_foreach(it, ht) {
         if (!it->key) continue;
-        printf("%s -> %s\n", *it->key, it->value);
+        printf("<%zu> %s -> %s\n", ht->satellite_index_to_visit_next, *it->key, it->value);
     }
 
     orbit_free(ht);
