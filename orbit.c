@@ -30,16 +30,15 @@ int main() {
     assert(ht);
 
     char *a[] = {"hello"};
-    // auto kv = orbit_put(ht, a, NULL);
-    orbit_put(ht, a, NULL);
-
+    typeof(ht->elements->kv) *kv = orbit_put(ht, a, NULL);
+    assert(kv);
     typeof(ht->elements->kv.value) *value = orbit_get(ht, a);
     if (value) {
         printf("*value = %s\n", *value);
     }
 
     orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
-    orbit_delete(ht, a, NULL);
+    // orbit_delete(ht, a, NULL);
     orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
 
     orbit_foreach(it, ht) {
