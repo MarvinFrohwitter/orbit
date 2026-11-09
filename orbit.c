@@ -18,36 +18,53 @@ typedef struct {
 #define SV_FMT "%.*s"
 
 int inner_ht_cmp(const void *s1, const void *s2, size_t n) {
-    printf("HY from inner ht cmp\n");
-    return memcmp(s1, s2, n);
+    (void) n;
+    const String_View *lhs = s1;
+    const String_View *rhs = s2;
+    if (lhs->count != rhs->count) {
+        return lhs->count < rhs->count ? -1 : 1;
+    }
+    return memcmp(lhs->elements, rhs->elements, lhs->count);
 }
 
 int main() {
-    // TODO: The comparison function has to be set for every value.
-    // Orbit_HT(char *, Orbit_HT(int, int)) *ht = calloc(1, sizeof(*ht));
-
-    Orbit_HT(char **, char *) *ht = calloc(1, sizeof(*ht));
+    // The outer table maps a name to another hash table.
+    Orbit_HT(char *, Orbit_HT(String_View, int)) *ht = calloc(1, sizeof(*ht));
     assert(ht);
+    ht->default_value.compare = inner_ht_cmp;
+    ht->default_value.init_size = 4;
 
-    char *a[] = {strdup("hello")};
-    typeof(ht->elements->kv) *kv = orbit_put(ht, a, NULL);
-    assert(kv);
+    typeof(ht->elements->kv) *person = orbit_put_default(ht, "alice");
+    assert(person);
 
-    typeof(ht->elements->kv.value) *value = orbit_get(ht, a);
-    assert(value);
-    (void) value;
+    typeof(ht->elements->kv.value) *attributes = &person->value;
+    assert(attributes->compare == inner_ht_cmp);
+    assert(attributes->init_size == 4);
 
-    orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
-    bool ok = orbit_delete(ht, a);
-    assert(ok);
+    // String_View keys are hashed by their raw bytes, so use the same
+    // String_View values for insertion and lookup.
+    String_View age = {.elements = "age", .count = 3};
+    String_View height = {.elements = "height", .count = 6};
 
+    assert(orbit_put(attributes, age, 42));
+    assert(orbit_put(attributes, height, 180));
+
+    int *age_value = orbit_get(attributes, age);
+    assert(age_value && *age_value == 42);
+
+    orbit_print(attributes, false, SV_FMT, "%d", SV_ARG, (int));
+
+    // Look up the inner table through the outer table.
+    typeof(ht->elements->kv.value) *found = orbit_get(ht, "alice");
+    assert(found == attributes);
+    assert(found->count == 2);
+
+    // Free every inner table before freeing the outer table.
     orbit_foreach(it, ht) {
-        if (!it->key) continue;
-        printf("<%zu> %s -> %s\n", ht->satellite_index_to_visit_next, *it->key, it->value);
+        orbit_free(&it->value);
     }
 
     orbit_free(ht);
-
     free(ht);
 
     return 0;
