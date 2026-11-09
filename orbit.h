@@ -105,19 +105,20 @@ typedef Orbit_HT(void *, void *) Orbit_Generic_HT;
          default: orbit__key_size_bytes)((const void *) (typeof((ht)->elements->kv.key)[]){(_key)},                    \
                                          sizeof((ht)->elements->kv.key)))
 
+#define ORBIT_KEY_OBJECT(ht, _key) ((typeof((ht)->elements->kv.key)[]){(_key)})
 void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key, void *value,
                  void *default_value, size_t sizeof_key, size_t sizeof_value, size_t offsetof__next,
                  size_t offsetof_occupied, size_t offsetof_key, size_t offsetof_value, size_t offsetof_kv,
-                 size_t sizeof_comparison, size_t satellite_size, bool is_key_cstr);
+                 size_t satellite_size, bool is_key_cstr);
 
 #define orbit_put(ht, _key, _value, ...)                                                                               \
     ((ht) ? (typeof((ht)->elements->kv) *) orbit__put(                                                                 \
                 (Orbit_Generic_HT *) (ht), ORBIT_GET_COMPARE(orbit_key_compare(ht), __VA_ARGS__),                      \
-                ((typeof((ht)->elements->kv.key)[]){(_key)}), ((typeof((ht)->elements->kv.value)[]){(_value)}),        \
+                (void *) ORBIT_KEY_OBJECT(ht, _key), ((typeof((ht)->elements->kv.value)[]){(_value)}),                 \
                 &(ht)->default_value, sizeof((ht)->elements->kv.key), sizeof((ht)->elements->kv.value),                \
                 offsetof(typeof(*(ht)->elements), _next), offsetof(typeof(*(ht)->elements), occupied),                 \
                 offsetof(typeof(*(ht)->elements), kv.key), offsetof(typeof(*(ht)->elements), kv.value),                \
-                offsetof(typeof(*(ht)->elements), kv), orbit_key_size(ht, _key), sizeof(*(ht)->elements),              \
+                offsetof(typeof(*(ht)->elements), kv), sizeof(*(ht)->elements),                                        \
                 orbit_is_cstr((ht)->elements->kv.key))                                                                 \
           : (typeof((ht)->elements->kv) *) NULL)
 
@@ -125,25 +126,25 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
 #define orbit_put_default(ht, _key, ...)                                                                               \
     ((ht) ? (typeof((ht)->elements->kv) *) orbit__put(                                                                 \
                 (Orbit_Generic_HT *) (ht), ORBIT_GET_COMPARE(orbit_key_compare(ht), __VA_ARGS__),                      \
-                ((typeof((ht)->elements->kv.key)[]){(_key)}), (void *) &(ht)->default_value,                           \
+                (void *) ORBIT_KEY_OBJECT(ht, _key), (void *) &(ht)->default_value,                                    \
                 (void *) &(ht)->default_value, sizeof((ht)->elements->kv.key), sizeof((ht)->elements->kv.value),       \
                 offsetof(typeof(*(ht)->elements), _next), offsetof(typeof(*(ht)->elements), occupied),                 \
                 offsetof(typeof(*(ht)->elements), kv.key), offsetof(typeof(*(ht)->elements), kv.value),                \
-                offsetof(typeof(*(ht)->elements), kv), orbit_key_size(ht, _key), sizeof(*(ht)->elements),              \
+                offsetof(typeof(*(ht)->elements), kv), sizeof(*(ht)->elements),                                        \
                 orbit_is_cstr((ht)->elements->kv.key))                                                                 \
           : (typeof((ht)->elements->kv) *) NULL)
 
-bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key,
-                   size_t key_size, void *key_object, size_t sizeof_key, size_t sizeof_value, size_t offsetof__next,
+bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key_object,
+                   size_t sizeof_key, bool is_key_cstr, size_t sizeof_value, size_t offsetof__next,
                    size_t offsetof_occupied, size_t offsetof_key, size_t offsetof_value, size_t satellite_size);
 
 #define orbit_delete(ht, _key, ...)                                                                                    \
     ((ht) ? orbit__delete((Orbit_Generic_HT *) ht, ORBIT_GET_COMPARE(orbit_key_compare(ht), __VA_ARGS__),              \
-                          orbit_key_data(ht, _key), orbit_key_size(ht, _key),                                          \
-                          ((typeof((ht)->elements->kv.key)[]){(_key)}), sizeof((ht)->elements->kv.key),                \
-                          sizeof((ht)->elements->kv.value), offsetof(typeof(*ht->elements), _next),                    \
-                          offsetof(typeof(*ht->elements), occupied), offsetof(typeof(*ht->elements), kv.key),          \
-                          offsetof(typeof(*ht->elements), kv.value), sizeof(*ht->elements))                            \
+                          (void *) ORBIT_KEY_OBJECT(ht, _key), sizeof((ht)->elements->kv.key),                         \
+                          orbit_is_cstr((ht)->elements->kv.key), sizeof((ht)->elements->kv.value),                     \
+                          offsetof(typeof(*ht->elements), _next), offsetof(typeof(*ht->elements), occupied),           \
+                          offsetof(typeof(*ht->elements), kv.key), offsetof(typeof(*ht->elements), kv.value),          \
+                          sizeof(*ht->elements))                                                                       \
           : false)
 
 #define orbit_free(ht)                                                                                                 \
@@ -198,10 +199,10 @@ bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const 
     ((ht) && ((ht)->elements)                                                                                          \
          ? (typeof((ht)->elements->kv.value) *) orbit__get(                                                            \
                (Orbit_Generic_HT *) ht, ORBIT_GET_COMPARE(orbit_key_compare(ht), __VA_ARGS__),                         \
-               orbit_key_data(ht, _key), orbit_key_size(ht, _key), ((typeof((ht)->elements->kv.key)[]){(_key)}),       \
-               offsetof(typeof(*(ht)->elements), _next), offsetof(typeof(*(ht)->elements), occupied),                  \
-               offsetof(typeof(*(ht)->elements), kv.key), offsetof(typeof(*(ht)->elements), kv.value),                 \
-               sizeof(*(ht)->elements))                                                                                \
+               (void *) ORBIT_KEY_OBJECT(ht, _key), sizeof((ht)->elements->kv.key),                                    \
+               orbit_is_cstr((ht)->elements->kv.key), offsetof(typeof(*(ht)->elements), _next),                        \
+               offsetof(typeof(*(ht)->elements), occupied), offsetof(typeof(*(ht)->elements), kv.key),                 \
+               offsetof(typeof(*(ht)->elements), kv.value), sizeof(*(ht)->elements))                                   \
          : (typeof((ht)->elements->kv.value) *) NULL)
 
 #define orbit_itterator_reset(ht) ((ht)->satellite_index_to_visit_next = 0, (ht)->satellite_to_visit_next = NULL)
@@ -221,8 +222,8 @@ bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const 
 
 uintptr_t orbit_djb2_hash(void *data, size_t size);
 size_t orbit_hash(void *buffer, size_t size, size_t max_index);
-void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key,
-                 size_t key_size, void *key_object, size_t offsetof__next, size_t offsetof_occupied,
+void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key_object,
+                 size_t sizeof_key, bool is_key_cstr, size_t offsetof__next, size_t offsetof_occupied,
                  size_t offsetof_key, size_t offsetof_value, size_t satellite_size);
 void *orbit_get_next_valid_entry(Orbit_Generic_HT *ht, size_t offsetof__next, size_t offsetof_occupied,
                                  size_t offsetof_kv, size_t satellite_size);
@@ -341,7 +342,7 @@ void *orbit__ht_insert(Orbit_Generic_HT *ht, int (*key_compare)(const void *, co
 void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key, void *value,
                  void *default_value, size_t sizeof_key, size_t sizeof_value, size_t offsetof__next,
                  size_t offsetof_occupied, size_t offsetof_key, size_t offsetof_value, size_t offsetof_kv,
-                 size_t sizeof_comparison, size_t satellite_size, bool is_key_cstr) {
+                 size_t satellite_size, bool is_key_cstr) {
     if (!ht) {
         return NULL;
     }
@@ -402,18 +403,21 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
     }
 
     const char *key_string = is_key_cstr ? *(const char *const *) key : NULL;
-    size_t hash_index = orbit_hash(is_key_cstr ? (void *) key_string : key,
-                                   is_key_cstr ? orbit_strlen(key_string) : sizeof_key, ht->capacity);
+    size_t key_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
+    size_t hash_index = orbit_hash(is_key_cstr ? (void *) key_string : key, key_size, ht->capacity);
 
     return orbit__ht_insert(ht, key_compare, key, value, default_value, sizeof_key, sizeof_value, offsetof__next,
-                            offsetof_occupied, offsetof_key, offsetof_value, offsetof_kv, sizeof_comparison,
+                            offsetof_occupied, offsetof_key, offsetof_value, offsetof_kv, key_size,
                             satellite_size, hash_index);
 }
 
-void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key,
-                 size_t key_size, void *key_object, size_t offsetof__next, size_t offsetof_occupied,
+void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key_object,
+                 size_t sizeof_key, bool is_key_cstr, size_t offsetof__next, size_t offsetof_occupied,
                  size_t offsetof_key, size_t offsetof_value, size_t satellite_size) {
     if (ht && ht->elements && ht->capacity) {
+        const char *key_string = is_key_cstr ? *(const char *const *) key_object : NULL;
+        void *key = is_key_cstr ? (void *) key_string : key_object;
+        size_t key_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
         size_t ht_index = orbit_hash(key, key_size, ht->capacity);
 
         char *current_satellite = (char *) ht->elements + ht_index * satellite_size;
@@ -482,13 +486,16 @@ int orbit_strcmp(const void *s1, const void *s2, size_t n) {
     return *str1 - *str2;
 }
 
-bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key,
-                   size_t key_size, void *key_object, size_t sizeof_key, size_t sizeof_value, size_t offsetof__next,
+bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key_object,
+                   size_t sizeof_key, bool is_key_cstr, size_t sizeof_value, size_t offsetof__next,
                    size_t offsetof_occupied, size_t offsetof_key, size_t offsetof_value, size_t satellite_size) {
     if (!ht || !ht->elements || ht->capacity == 0) {
         return false;
     }
 
+    const char *key_string = is_key_cstr ? *(const char *const *) key_object : NULL;
+    void *key = is_key_cstr ? (void *) key_string : key_object;
+    size_t key_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
     size_t ht_index = orbit_hash(key, key_size, ht->capacity);
     char *head = (char *) ht->elements + ht_index * satellite_size;
     if (!*(bool *) (head + offsetof_occupied)) {
