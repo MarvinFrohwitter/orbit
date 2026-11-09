@@ -29,7 +29,7 @@ int main() {
     Orbit_HT(char **, char *) *ht = calloc(1, sizeof(*ht));
     assert(ht);
 
-    char *a[] = {"hello"};
+    char *a[] = {strdup("hello")};
     typeof(ht->elements->kv) *kv = orbit_put(ht, a, NULL);
     assert(kv);
 
