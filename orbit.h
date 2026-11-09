@@ -216,6 +216,24 @@ bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const 
 #define orbit_foreach(it, ht) for (typeof((ht)->elements->kv) *(it) = orbit_iterator(ht); (it); (it) = orbit_next((ht)))
 #define orbit_is_empty(ht) (!(ht) || (ht)->count == 0)
 
+#define orbit_reset(ht)                                                                                                \
+    do {                                                                                                               \
+        if (!(ht)) {                                                                                                   \
+            break;                                                                                                     \
+        }                                                                                                              \
+        orbit__free_chain_nodes((ht)->elements, (ht)->capacity, offsetof(typeof(*(ht)->elements), _next),              \
+                                sizeof(*(ht)->elements));                                                              \
+        memset((ht)->elements, 0, (ht)->capacity * sizeof(*(ht)->elements));                                           \
+        if (default_value) {                                                                                           \
+            for (size_t i = 0; i < (ht)->capacity; ++i) {                                                              \
+                memcpy(&(ht)->elements[i].value, (ht)->default_value, sizeof((ht)->default_value));                    \
+            }                                                                                                          \
+        }                                                                                                              \
+        (ht)->count = 0;                                                                                               \
+        (ht)->filled_slots = 0;                                                                                        \
+        orbit_iterator_reset(ht);                                                                                      \
+    } while (0)
+
 uintptr_t orbit_djb2_hash(void *data, size_t size);
 size_t orbit_hash(void *buffer, size_t size, size_t max_index);
 void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key_object,
@@ -360,6 +378,7 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
             }
         }
 
+        // TODO: Extract this to orbit_rehash and add shrinking to orbit_delete when filled_slots < capacity /2
         Orbit_Generic_HT new_ht = *ht;
         new_ht.elements = new_ptr;
         new_ht.count = 0;
