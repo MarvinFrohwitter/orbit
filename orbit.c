@@ -38,7 +38,8 @@ int main() {
     (void) value;
 
     orbit_print(ht, false, "%s", "%s", *(char **), (char *) );
-    orbit_delete(ht, a, NULL);
+    bool ok = orbit_delete(ht, a);
+    assert(ok);
 
     orbit_foreach(it, ht) {
         if (!it->key) continue;
