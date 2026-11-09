@@ -28,16 +28,15 @@ int inner_ht_cmp(const void *s1, const void *s2, size_t n) {
 }
 
 int main() {
-    // The outer table maps a name to another hash table.
-    Orbit_HT(char *, Orbit_HT(String_View, int)) *ht = calloc(1, sizeof(*ht));
-    assert(ht);
-    ht->default_value.compare = inner_ht_cmp;
-    ht->default_value.init_size = 4;
+    Orbit_HT(char *, Orbit_HT(String_View, int)) ht = {
+        .default_value.compare = inner_ht_cmp,
+        .default_value.init_size = 4,
+    };
 
-    typeof(ht->elements->kv) *person = orbit_put_default(ht, "alice");
+    typeof(ht.elements->kv) *person = orbit_put_default(&ht, "alice");
     assert(person);
 
-    typeof(ht->elements->kv.value) *attributes = &person->value;
+    typeof(ht.elements->kv.value) *attributes = &person->value;
     assert(attributes->compare == inner_ht_cmp);
     assert(attributes->init_size == 4);
 
@@ -55,17 +54,14 @@ int main() {
     orbit_print(attributes, false, SV_FMT, "%d", SV_ARG, (int) );
 
     // Look up the inner table through the outer table.
-    typeof(ht->elements->kv.value) *found = orbit_get(ht, "alice");
+    typeof(ht.elements->kv.value) *found = orbit_get(&ht, "alice");
     assert(found == attributes);
     assert(found->count == 2);
 
-    // Free every inner table before freeing the outer table.
-    orbit_foreach(it, ht) {
+    orbit_foreach(it, &ht) {
         orbit_free(&it->value);
     }
-
-    orbit_free(ht);
-    free(ht);
+    orbit_free(&ht);
 
     return 0;
 }
