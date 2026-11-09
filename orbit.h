@@ -236,7 +236,7 @@ static inline size_t orbit__key_size_bytes(const void *key_object, size_t key_fi
 #ifdef ORBIT_IMPLEMENTATION
 
 uintptr_t orbit_djb2_hash(void *data, size_t size) {
-    const uint8_t *bytes = data;
+    const char *bytes = data;
     uintptr_t hash = 5381U;
     for (size_t i = 0; i < size; ++i) {
         hash = ((hash << 5) + hash) + (uintptr_t) bytes[i];
@@ -256,10 +256,10 @@ void orbit__free_chain_nodes(void *elements, size_t capacity, size_t offsetof__n
         return;
     }
     for (size_t i = 0; i < capacity; ++i) {
-        uint8_t *satellite = (uint8_t *) elements + i * satellite_size;
+        char *satellite = (char *) elements + i * satellite_size;
         void *next = *(void **) (satellite + offsetof__next);
         while (next) {
-            uint8_t *node = (uint8_t *) next;
+            char *node = (char *) next;
             next = *(void **) (node + offsetof__next);
             free(node);
         }
@@ -338,7 +338,7 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
         orbit_itterator_reset(&new_ht);
 
         for (size_t i = 0; i < old_capacity; ++i) {
-            uint8_t *satellite = (uint8_t *) old_elements + i * satellite_size;
+            char *satellite = (char *) old_elements + i * satellite_size;
             while (satellite) {
                 if (*(bool *) (satellite + offsetof_occupied)) {
                     void *key_ptr = satellite + offsetof_key;
@@ -356,7 +356,7 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
                         return NULL;
                     }
                 }
-                satellite = *(uint8_t **) (satellite + offsetof__next);
+                satellite = *(char **) (satellite + offsetof__next);
             }
         }
 
@@ -380,7 +380,7 @@ void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
     if (ht && ht->elements && ht->capacity) {
         size_t ht_index = orbit_hash(key, key_size, ht->capacity);
 
-        uint8_t *current_satellite = (uint8_t *) ht->elements + ht_index * satellite_size;
+        char *current_satellite = (char *) ht->elements + ht_index * satellite_size;
         do {
             bool occupied = *(char *) (current_satellite + offsetof_occupied);
             if (occupied && key_compare(current_satellite + offsetof_key, key_object, key_size) == 0) {
@@ -409,8 +409,8 @@ void *orbit_get_next_valid_entry(Orbit_Generic_HT *ht, size_t offsetof__next, si
     }
 
     for (; ht->satellite_index_to_visit_next < ht->capacity; ht->satellite_index_to_visit_next++) {
-        uint8_t *satellite = (uint8_t *) ht->elements + ht->satellite_index_to_visit_next * satellite_size;
-        bool occupied = *(uint8_t *) (satellite + offsetof_occupied);
+        char *satellite = (char *) ht->elements + ht->satellite_index_to_visit_next * satellite_size;
+        bool occupied = *(char *) (satellite + offsetof_occupied);
         if (!occupied) {
             continue;
         }
