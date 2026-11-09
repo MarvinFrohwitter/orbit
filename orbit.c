@@ -52,7 +52,7 @@ int main() {
     int *age_value = orbit_get(attributes, age);
     assert(age_value && *age_value == 42);
 
-    orbit_print(attributes, false, SV_FMT, "%d", SV_ARG, (int));
+    orbit_print(attributes, false, SV_FMT, "%d", SV_ARG, (int) );
 
     // Look up the inner table through the outer table.
     typeof(ht->elements->kv.value) *found = orbit_get(ht, "alice");
