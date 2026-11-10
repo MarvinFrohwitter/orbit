@@ -367,10 +367,11 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
         size_t new_capacity = old_capacity    ? old_capacity * 2
                               : ht->init_size ? ht->init_size
                                               : ORBIT_HT_INIT_DEFAULT_CAPACITY;
-        void *new_ptr = calloc(1, new_capacity * satellite_size);
+        void *new_ptr = malloc(new_capacity * satellite_size);
         if (new_ptr == NULL) {
             return NULL;
         }
+        memset(new_ptr, 0, new_capacity * satellite_size);
 
         if (default_value) {
             for (size_t i = 0; i < new_capacity; ++i) {
