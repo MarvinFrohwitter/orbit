@@ -9,7 +9,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef ORBIT_MALLOC
+#define ORBIT_MALLOC malloc
+#endif
+
+#ifndef ORBIT_DEFAULT_ALLOC
+#define ORBIT_DEFAULT_ALLOC orbit_alloc
+#endif
+
+#ifndef ORBIT_HT_INIT_DEFAULT_CAPACITY
 #define ORBIT_HT_INIT_DEFAULT_CAPACITY (64)
+#endif
+
 #define __Satellite(key_type, value_type)                                                                              \
     struct {                                                                                                           \
         void *_next;                                                                                                   \
@@ -29,6 +40,10 @@
         size_t init_size;                                                                                              \
         int (*compare)(const void *, const void *, size_t n);                                                          \
         uintptr_t (*hash)(const void *data, size_t size);                                                              \
+        struct {                                                                                                       \
+            void *(*alloc)(void *alloc_data, size_t size);                                                             \
+            void *alloc_data;                                                                                          \
+        } allocator;                                                                                                   \
                                                                                                                        \
         size_t satellite_index_to_visit_next;                                                                          \
         __Satellite(key_type, value_type) * satellite_to_visit_next;                                                   \
@@ -269,6 +284,11 @@ static inline size_t orbit__key_size_bytes(const void *key_object, size_t key_fi
     return key_field_size;
 }
 
+static inline void *orbit_alloc(void *alloc_data, size_t size) {
+    (void) alloc_data;
+    return ORBIT_MALLOC(size);
+}
+
 #endif  // ORBIT_H_
 
 // ===========================================================================
@@ -335,7 +355,10 @@ void *orbit__ht_insert(Orbit_Generic_HT *ht, int (*key_compare)(const void *, co
         if (contains_key) {
             memcpy(current_satellite + offsetof_value, value, sizeof_value);
         } else {
-            char *new_satellite = malloc(satellite_size);
+            if (!ht->allocator.alloc) {
+                ht->allocator.alloc = &ORBIT_DEFAULT_ALLOC;
+            }
+            char *new_satellite = ht->allocator.alloc(ht->allocator.alloc_data, satellite_size);
             if (new_satellite == NULL) {
                 return NULL;
             }
@@ -371,7 +394,11 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
         size_t new_capacity = old_capacity    ? old_capacity * 2
                               : ht->init_size ? ht->init_size
                                               : ORBIT_HT_INIT_DEFAULT_CAPACITY;
-        void *new_ptr = malloc(new_capacity * satellite_size);
+
+        if (!ht->allocator.alloc) {
+            ht->allocator.alloc = &ORBIT_DEFAULT_ALLOC;
+        }
+        void *new_ptr = ht->allocator.alloc(ht->allocator.alloc_data, new_capacity * satellite_size);
         if (new_ptr == NULL) {
             return NULL;
         }
