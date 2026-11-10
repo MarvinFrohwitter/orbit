@@ -28,6 +28,7 @@
         size_t filled_slots;                                                                                           \
         size_t init_size;                                                                                              \
         int (*compare)(const void *, const void *, size_t n);                                                          \
+        uintptr_t (*hash)(const void *data, size_t size);                                                              \
                                                                                                                        \
         size_t satellite_index_to_visit_next;                                                                          \
         __Satellite(key_type, value_type) * satellite_to_visit_next;                                                   \
@@ -234,8 +235,8 @@ bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const 
         orbit_iterator_reset(ht);                                                                                      \
     } while (0)
 
-uintptr_t orbit_djb2_hash(void *data, size_t size);
-size_t orbit_hash(void *buffer, size_t size, size_t max_index);
+uintptr_t orbit_djb2_hash(const void *data, size_t size);
+size_t orbit_hash(uintptr_t (*hash)(const void *data, size_t size), void *buffer, size_t size, size_t max_index);
 void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const void *, size_t), void *key_object,
                  size_t sizeof_key, bool is_key_cstr, size_t offsetof__next, size_t offsetof_occupied,
                  size_t offsetof_key, size_t offsetof_value, size_t satellite_size);
@@ -274,7 +275,7 @@ static inline size_t orbit__key_size_bytes(const void *key_object, size_t key_fi
 
 #ifdef ORBIT_IMPLEMENTATION
 
-uintptr_t orbit_djb2_hash(void *data, size_t size) {
+uintptr_t orbit_djb2_hash(const void *data, size_t size) {
     const char *bytes = data;
     uintptr_t hash = 5381U;
     for (size_t i = 0; i < size; ++i) {
@@ -283,11 +284,14 @@ uintptr_t orbit_djb2_hash(void *data, size_t size) {
     return hash;
 }
 
-size_t orbit_hash(void *buffer, size_t size, size_t max_index) {
+size_t orbit_hash(uintptr_t (*hash)(const void *data, size_t size), void *buffer, size_t size, size_t max_index) {
     if (max_index == 0) {
         return 0;
     }
-    return orbit_djb2_hash(buffer, size) % max_index;
+    if (!hash) {
+        hash = &orbit_djb2_hash;
+    }
+    return hash(buffer, size) % max_index;
 }
 
 void orbit__free_chain_nodes(void *elements, size_t capacity, size_t offsetof__next, size_t satellite_size) {
@@ -379,7 +383,8 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
             }
         }
 
-        // TODO: Extract this to orbit_rehash and add shrinking to orbit_delete when filled_slots < capacity /2
+        // TODO: Extract this to orbit_rehash and add shrinking to orbit_delete when filled_slots < capacity /2 make it
+        // a load_factor
         Orbit_Generic_HT new_ht = *ht;
         new_ht.elements = new_ptr;
         new_ht.count = 0;
@@ -396,7 +401,7 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
                     const char *key_string = is_key_cstr ? *(const char *const *) key_ptr : NULL;
                     void *hash_data = is_key_cstr ? (void *) key_string : key_ptr;
                     size_t hash_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
-                    size_t new_hash_index = orbit_hash(hash_data, hash_size, new_capacity);
+                    size_t new_hash_index = orbit_hash(ht->hash, hash_data, hash_size, new_capacity);
 
                     if (orbit__ht_insert(&new_ht, key_compare, key_ptr, value_ptr, default_value, sizeof_key,
                                          sizeof_value, offsetof__next, offsetof_occupied, offsetof_key, offsetof_value,
@@ -420,7 +425,7 @@ void *orbit__put(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
 
     const char *key_string = is_key_cstr ? *(const char *const *) key : NULL;
     size_t key_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
-    size_t hash_index = orbit_hash(is_key_cstr ? (void *) key_string : key, key_size, ht->capacity);
+    size_t hash_index = orbit_hash(ht->hash, is_key_cstr ? (void *) key_string : key, key_size, ht->capacity);
 
     return orbit__ht_insert(ht, key_compare, key, value, default_value, sizeof_key, sizeof_value, offsetof__next,
                             offsetof_occupied, offsetof_key, offsetof_value, offsetof_kv, key_size, satellite_size,
@@ -434,7 +439,7 @@ void *orbit__get(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const vo
         const char *key_string = is_key_cstr ? *(const char *const *) key_object : NULL;
         void *key = is_key_cstr ? (void *) key_string : key_object;
         size_t key_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
-        size_t ht_index = orbit_hash(key, key_size, ht->capacity);
+        size_t ht_index = orbit_hash(ht->hash, key, key_size, ht->capacity);
 
         char *current_satellite = (char *) ht->elements + ht_index * satellite_size;
         do {
@@ -512,7 +517,7 @@ bool orbit__delete(Orbit_Generic_HT *ht, int (*key_compare)(const void *, const 
     const char *key_string = is_key_cstr ? *(const char *const *) key_object : NULL;
     void *key = is_key_cstr ? (void *) key_string : key_object;
     size_t key_size = is_key_cstr ? orbit_strlen(key_string) : sizeof_key;
-    size_t ht_index = orbit_hash(key, key_size, ht->capacity);
+    size_t ht_index = orbit_hash(ht->hash, key, key_size, ht->capacity);
     char *head = (char *) ht->elements + ht_index * satellite_size;
     if (!*(bool *) (head + offsetof_occupied)) {
         return false;
