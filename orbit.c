@@ -58,6 +58,8 @@ int main() {
     assert(found == attributes);
     assert(found->count == 2);
 
+    orbit_delete(&ht, "alice");
+
     orbit_foreach(it, &ht) {
         orbit_free(&it->value);
     }
